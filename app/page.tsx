@@ -23,6 +23,7 @@ export default function Home() {
   const [balance, setBalance] = useState(12500);
   const [selectedPlan, setSelectedPlan] = useState("Beginner");
   const [message, setMessage] = useState("");
+  const [activeTask, setActiveTask] = useState<(typeof tasks)[number] | null>(null);
 
   const money = (n: number) =>
     new Intl.NumberFormat("en-NG", {
@@ -31,7 +32,13 @@ export default function Home() {
       maximumFractionDigits: 0,
     }).format(n);
 
-  function completeTask(reward: number) {
+  function startTask(task: typeof tasks[number]) {
+  setActiveTask(task);
+  setPage("task");
+  setMessage("");
+}
+
+function completeTask(reward: number) {
     setBalance((b) => b + reward);
     setMessage(`Task submitted. ${money(reward)} has been added to your pending earnings.`);
   }
@@ -166,7 +173,7 @@ export default function Home() {
                     <p className="text-lg font-black text-emerald-400">{money(task.reward)}</p>
                   </div>
                   <button
-                    onClick={() => completeTask(task.reward)}
+                    onClick={() => startTask(task)}
                     className="mt-6 w-full rounded-xl bg-emerald-400 py-3 font-bold text-black"
                   >
                     Start Task
@@ -177,7 +184,60 @@ export default function Home() {
           </>
         )}
 
-        {page === "plans" && (
+        {page === "task" && activeTask && (
+        <>
+          <div className="mb-7">
+            <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">Task in progress</p>
+            <h2 className="mt-2 text-3xl font-black">{activeTask.title}</h2>
+            <p className="mt-2 text-gray-400">Complete the instructions below and submit your proof for administrator review.</p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-sm">{activeTask.category}</span>
+                <h3 className="mt-4 text-2xl font-bold">{activeTask.title}</h3>
+                <p className="mt-2 text-gray-400">Estimated time: {activeTask.time}</p>
+              </div>
+              <div className="text-2xl font-black text-emerald-400">{money(activeTask.reward)}</div>
+            </div>
+
+            {activeTask.category === "Video" ? (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-black">
+                <div className="flex aspect-video items-center justify-center">
+                  <div className="text-center px-6">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400 text-2xl text-black">▶</div>
+                    <p className="text-lg font-bold">Short Video Task</p>
+                    <p className="mt-2 text-sm text-gray-400">Watch the assigned short video, complete the required action, then submit your proof.</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+                <p className="font-semibold">Task instructions</p>
+                <p className="mt-2 text-gray-400">Complete the assigned task carefully and provide valid proof before submitting.</p>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={() => setMessage("Proof submission will be connected to Supabase next.")}
+                className="rounded-xl bg-emerald-400 px-6 py-3 font-bold text-black"
+              >
+                Submit Proof
+              </button>
+              <button
+                onClick={() => setPage("tasks")}
+                className="rounded-xl border border-white/15 px-6 py-3 font-semibold"
+              >
+                Back to Tasks
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {page === "plans" && (
           <>
             <div className="mb-7">
               <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">

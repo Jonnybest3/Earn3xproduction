@@ -1,339 +1,378 @@
+
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase-browser";
 
-const plans = [
-  { name: "Beginner", fee: 1000, tasks: "4–6", note: "Starter access" },
-  { name: "Bronze", fee: 3500, tasks: "7–10", note: "More daily tasks" },
-  { name: "Gold", fee: 7500, tasks: "11–15", note: "Higher task access" },
-  { name: "Diamond", fee: 15000, tasks: "13–16", note: "Advanced access" },
-  { name: "Super Gold", fee: 25000, tasks: "19–23", note: "High-volume access" },
-  { name: "Expert", fee: 50000, tasks: "30–35", note: "Maximum task access" },
-];
-
-const tasks = [
-  { title: "Social Media Engagement", category: "Social", reward: 250, time: "5 min" },
-  { title: "Short Video Campaign", category: "Video", reward: 400, time: "8 min" },
-  { title: "Data Entry Task", category: "Data", reward: 300, time: "7 min" },
-  { title: "Content Review", category: "Review", reward: 350, time: "6 min" },
-];
+type Task = {
+    id: string;
+    title: string;
+    category: string | null;
+    action_type: string | null;
+    target_url: string | null;
+    instructions: string | null;
+    reward_per_worker: number;
+    estimated_minutes: number | null;
+    proof_required: boolean;
+    is_active: boolean;
+    status: string | null;
+};
 
 export default function Home() {
-  const [page, setPage] = useState("home");
-  const [balance, setBalance] = useState(12500);
-  const [selectedPlan, setSelectedPlan] = useState("Beginner");
-  const [message, setMessage] = useState("");
-  const [activeTask, setActiveTask] = useState<(typeof tasks)[number] | null>(null);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [proof, setProof] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [message, setMessage] = useState("");
+    const [error, setError] = useState("");
 
-  const money = (n: number) =>
-    new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      maximumFractionDigits: 0,
-    }).format(n);
+    const money = (amount: number) =>
+        new Intl.NumberFormat("en-NG", {
+            style: "currency",
+            currency: "NGN",
+            maximumFractionDigits: 0,
+        }).format(amount);
 
-  function startTask(task: typeof tasks[number]) {
-  setActiveTask(task);
-  setPage("task");
-  setMessage("");
-}
+    async function loadTasks() {
+        setLoading(true);
+        setError("");
 
-function completeTask(reward: number) {
-    setBalance((b) => b + reward);
-    setMessage(`Task submitted. ${money(reward)} has been added to your pending earnings.`);
-  }
+        const { data, error } = await supabase
+            .from("tasks")
+            .select(
+                "id,title,category,action_type,target_url,instructions,reward_per_worker,estimated_minutes,proof_required,is_active,status"
+            )
+            .eq("is_active", true)
+            .eq("status", "active")
+            .order("created_at", { ascending: false });
 
-  return (
-    <main className="min-h-screen bg-[#07110d] text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#07110d]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <button onClick={() => setPage("home")} className="text-2xl font-black tracking-tight">
-            Earn<span className="text-emerald-400">3X</span>
-          </button>
+        if (error) {
+            setError(error.message);
+            setTasks([]);
+        } else {
+            setTasks((data ?? []) as Task[]);
+        }
 
-          <nav className="hidden gap-6 text-sm text-gray-300 md:flex">
-            {[
-              ["home", "Home"],
-              ["tasks", "Tasks"],
-              ["plans", "Plans"],
-              ["wallet", "Wallet"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setPage(key)}
-                className="transition hover:text-emerald-400"
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
+        setLoading(false);
+    }
 
-          <button
-            onClick={() => setPage("wallet")}
-            className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-bold text-black"
-          >
-            {money(balance)}
-          </button>
-        </div>
-      </header>
+    useEffect(() => {
+        loadTasks();
+    }, []);
 
-      <section className="mx-auto max-w-6xl px-5 py-10">
-        {message && (
-          <div className="mb-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
-            {message}
-          </div>
-        )}
+    function openTask(task: Task) {
+        setSelectedTask(task);
+        setProof("");
+        setMessage("");
+        setError("");
+    }
 
-        {page === "home" && (
-          <>
-            <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 md:p-10">
-                <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">
-                  Worker platform
-                </p>
-                <h1 className="max-w-2xl text-4xl font-black leading-tight md:text-6xl">
-                  Complete tasks.
-                  <br />
-                  <span className="text-emerald-400">Earn real money.</span>
-                </h1>
-                <p className="mt-5 max-w-xl text-gray-400">
-                  Choose your task plan, complete approved tasks, track your earnings,
-                  and request withdrawals from your worker wallet.
-                </p>
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <button
-                    onClick={() => setPage("tasks")}
-                    className="rounded-xl bg-emerald-400 px-6 py-3 font-bold text-black"
-                  >
-                    View Tasks
-                  </button>
-                  <button
-                    onClick={() => setPage("plans")}
-                    className="rounded-xl border border-white/15 px-6 py-3 font-semibold"
-                  >
-                    View Plans
-                  </button>
+    function closeTask() {
+        setSelectedTask(null);
+        setProof("");
+        setMessage("");
+        setError("");
+    }
+
+    async function submitProof(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (!selectedTask) return;
+
+        if (proof.trim().length < 5) {
+            setError("Please enter your proof before submitting.");
+            return;
+        }
+
+        setSubmitting(true);
+        setError("");
+        setMessage("");
+
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+            setError("Please sign in before submitting proof.");
+            setSubmitting(false);
+            return;
+        }
+
+        const { error } = await supabase
+            .from("task_submissions")
+            .insert({
+                task_id: selectedTask.id,
+                user_id: user.id,
+                status: "pending",
+                proof_text: proof.trim(),
+                started_at: new Date().toISOString(),
+            });
+
+        if (error) {
+            setError(error.message);
+        } else {
+            setMessage(
+                "Proof submitted successfully. Your reward will only be credited after admin approval."
+            );
+            setProof("");
+        }
+
+        setSubmitting(false);
+    }
+
+    return (
+        <main className="min-h-screen bg-[#06100c] text-white">
+            <header className="sticky top-0 z-30 border-b border-white/10 bg-[#06100c]/95 backdrop-blur">
+                <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+                    <button
+                        type="button"
+                        onClick={closeTask}
+                        className="text-2xl font-black"
+                    >
+                        Earn<span className="text-emerald-400">3X</span>
+                    </button>
+
+                    <span className="rounded-full bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-400">
+                        LIVE TASKS
+                    </span>
                 </div>
-              </div>
+            </header>
 
-              <div className="rounded-3xl bg-emerald-400 p-7 text-black">
-                <p className="text-sm font-bold uppercase tracking-wider">Available balance</p>
-                <p className="mt-4 text-4xl font-black">{money(balance)}</p>
-                <div className="mt-8 border-t border-black/15 pt-5">
-                  <p className="text-sm font-semibold">Current plan</p>
-                  <p className="mt-1 text-2xl font-black">{selectedPlan}</p>
+            <section className="mx-auto max-w-6xl px-5 py-10">
+                <div className="mb-10 rounded-3xl border border-emerald-400/20 bg-emerald-400/[0.06] p-7">
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">
+                        Earn3X Marketplace
+                    </p>
+
+                    <h1 className="mt-3 text-3xl font-black sm:text-5xl">
+                        Complete real tasks.
+                        <br />
+                        <span className="text-emerald-400">
+                            Earn after approval.
+                        </span>
+                    </h1>
+
+                    <p className="mt-4 max-w-2xl text-gray-400">
+                        Available tasks are loaded directly from the Earn3X
+                        database. Rewards are reviewed before they are credited.
+                    </p>
                 </div>
-                <button
-                  onClick={() => setPage("wallet")}
-                  className="mt-7 w-full rounded-xl bg-black px-5 py-3 font-bold text-white"
-                >
-                  Open Wallet
-                </button>
-              </div>
-            </div>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {[
-                ["Today's tasks", "6"],
-                ["Pending earnings", money(1800)],
-                ["Approved earnings", money(balance)],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <p className="text-sm text-gray-400">{label}</p>
-                  <p className="mt-2 text-2xl font-black">{value}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {page === "tasks" && (
-          <>
-            <div className="mb-7">
-              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
-                Task center
-              </p>
-              <h2 className="mt-2 text-3xl font-black">Available Tasks</h2>
-              <p className="mt-2 text-gray-400">
-                Complete available tasks and submit proof for administrator review.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {tasks.map((task) => (
-                <div key={task.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-300">
-                        {task.category}
-                      </span>
-                      <h3 className="mt-4 text-xl font-bold">{task.title}</h3>
-                      <p className="mt-2 text-sm text-gray-400">Estimated time: {task.time}</p>
+                {message && (
+                    <div className="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-300">
+                        {message}
                     </div>
-                    <p className="text-lg font-black text-emerald-400">{money(task.reward)}</p>
-                  </div>
-                  <button
-                    onClick={() => startTask(task)}
-                    className="mt-6 w-full rounded-xl bg-emerald-400 py-3 font-bold text-black"
-                  >
-                    Start Task
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+                )}
 
-        {page === "task" && activeTask && (
-        <>
-          <div className="mb-7">
-            <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">Task in progress</p>
-            <h2 className="mt-2 text-3xl font-black">{activeTask.title}</h2>
-            <p className="mt-2 text-gray-400">Complete the instructions below and submit your proof for administrator review.</p>
-          </div>
+                {error && (
+                    <div className="mb-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
+                        {error}
+                    </div>
+                )}
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-sm">{activeTask.category}</span>
-                <h3 className="mt-4 text-2xl font-bold">{activeTask.title}</h3>
-                <p className="mt-2 text-gray-400">Estimated time: {activeTask.time}</p>
-              </div>
-              <div className="text-2xl font-black text-emerald-400">{money(activeTask.reward)}</div>
-            </div>
+                {selectedTask ? (
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+                        <button
+                            type="button"
+                            onClick={closeTask}
+                            className="mb-6 text-sm text-gray-400"
+                        >
+                            ← Back to tasks
+                        </button>
 
-            {activeTask.category === "Video" ? (
-              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-black">
-                <div className="flex aspect-video items-center justify-center">
-                  <div className="text-center px-6">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400 text-2xl text-black">▶</div>
-                    <p className="text-lg font-bold">Short Video Task</p>
-                    <p className="mt-2 text-sm text-gray-400">Watch the assigned short video, complete the required action, then submit your proof.</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
-                <p className="font-semibold">Task instructions</p>
-                <p className="mt-2 text-gray-400">Complete the assigned task carefully and provide valid proof before submitting.</p>
-              </div>
-            )}
+                        <div className="flex flex-col gap-6 md:flex-row md:justify-between">
+                            <div>
+                                <p className="text-sm font-bold uppercase text-emerald-400">
+                                    {selectedTask.category || "Task"}
+                                </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                onClick={() => setMessage("Proof submission will be connected to Supabase next.")}
-                className="rounded-xl bg-emerald-400 px-6 py-3 font-bold text-black"
-              >
-                Submit Proof
-              </button>
-              <button
-                onClick={() => setPage("tasks")}
-                className="rounded-xl border border-white/15 px-6 py-3 font-semibold"
-              >
-                Back to Tasks
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+                                <h2 className="mt-2 text-3xl font-black">
+                                    {selectedTask.title}
+                                </h2>
 
-      {page === "plans" && (
-          <>
-            <div className="mb-7">
-              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
-                Task plans
-              </p>
-              <h2 className="mt-2 text-3xl font-black">Choose Your Plan</h2>
-              <p className="mt-2 text-gray-400">
-                Activation fees unlock the selected daily task allocation.
-              </p>
-            </div>
+                                <p className="mt-3 text-gray-400">
+                                    Action:{" "}
+                                    {selectedTask.action_type || "Complete task"}
+                                </p>
+                            </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={`rounded-2xl border p-6 ${
-                    selectedPlan === plan.name
-                      ? "border-emerald-400 bg-emerald-400/10"
-                      : "border-white/10 bg-white/[0.04]"
-                  }`}
-                >
-                  <p className="text-xl font-black">{plan.name}</p>
-                  <p className="mt-4 text-3xl font-black">{money(plan.fee)}</p>
-                  <p className="mt-2 text-sm text-gray-400">{plan.note}</p>
-                  <div className="mt-5 border-t border-white/10 pt-4">
-                    <p className="text-sm text-gray-400">Daily task allocation</p>
-                    <p className="mt-1 font-bold">{plan.tasks} tasks</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedPlan(plan.name);
-                      setMessage(`${plan.name} selected. Payment activation will be connected to Paystack.`);
-                    }}
-                    className="mt-6 w-full rounded-xl bg-emerald-400 py-3 font-bold text-black"
-                  >
-                    Select Plan
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+                            <div className="rounded-2xl bg-emerald-400 px-6 py-4 text-center text-black">
+                                <div className="text-xs font-bold uppercase">
+                                    Reward
+                                </div>
+                                <div className="text-2xl font-black">
+                                    {money(selectedTask.reward_per_worker)}
+                                </div>
+                            </div>
+                        </div>
 
-        {page === "wallet" && (
-          <>
-            <div className="mb-7">
-              <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
-                Worker wallet
-              </p>
-              <h2 className="mt-2 text-3xl font-black">Wallet & Withdrawals</h2>
-            </div>
+                        <div className="mt-8 rounded-2xl border border-white/10 bg-black/20 p-5">
+                            <h3 className="font-bold">Instructions</h3>
 
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div className="rounded-3xl bg-white/[0.04] p-7 border border-white/10">
-                <p className="text-sm text-gray-400">Available balance</p>
-                <p className="mt-2 text-4xl font-black">{money(balance)}</p>
-                <p className="mt-4 text-sm text-gray-400">
-                  Minimum withdrawal: ₦2,000 · Admin ledger fee: ₦100
-                </p>
-                <button
-                  onClick={() => setMessage("Withdrawal request screen will be connected to the real Supabase wallet and admin approval system.")}
-                  className="mt-7 w-full rounded-xl bg-emerald-400 py-3 font-bold text-black"
-                >
-                  Request Withdrawal
-                </button>
-              </div>
+                            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-gray-300">
+                                {selectedTask.instructions ||
+                                    "Follow the administrator's instructions and complete the required action."}
+                            </p>
+                        </div>
 
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7">
-                <h3 className="text-xl font-bold">Account information</h3>
-                <div className="mt-5 space-y-4 text-sm">
-                  <div className="flex justify-between border-b border-white/10 pb-3">
-                    <span className="text-gray-400">Plan</span>
-                    <span className="font-semibold">{selectedPlan}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/10 pb-3">
-                    <span className="text-gray-400">Currency</span>
-                    <span className="font-semibold">NGN</span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/10 pb-3">
-                    <span className="text-gray-400">Withdrawal review</span>
-                    <span className="font-semibold">Manual admin review</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Weekly limit</span>
-                    <span className="font-semibold">4 withdrawals</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </section>
+                        <div className="mt-6 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.05] p-5">
+                            <h3 className="font-bold text-yellow-300">
+                                Step 1 — Complete the task
+                            </h3>
 
-      <footer className="border-t border-white/10 px-5 py-8 text-center text-sm text-gray-500">
-        © 2026 Earn3X · Worker task platform · Nigeria
-      </footer>
-    </main>
-  );
+                            {selectedTask.target_url ? (
+                                <a
+                                    href={selectedTask.target_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-4 inline-flex rounded-xl bg-white px-5 py-3 font-bold text-black"
+                                >
+                                    Open Task Link ↗
+                                </a>
+                            ) : (
+                                <p className="mt-3 text-sm text-gray-400">
+                                    No external link was supplied for this task.
+                                </p>
+                            )}
+
+                            <p className="mt-3 text-xs text-gray-500">
+                                Perform the actual action before submitting proof.
+                            </p>
+                        </div>
+
+                        <form
+                            onSubmit={submitProof}
+                            className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+                        >
+                            <h3 className="font-bold">
+                                Step 2 — Submit proof
+                            </h3>
+
+                            <p className="mt-2 text-sm text-gray-400">
+                                Enter your proof after completing the task.
+                            </p>
+
+                            <textarea
+                                value={proof}
+                                onChange={(event) =>
+                                    setProof(event.target.value)
+                                }
+                                placeholder="Enter proof details here..."
+                                className="mt-5 min-h-32 w-full rounded-xl border border-white/10 bg-black/30 p-4 text-white outline-none placeholder:text-gray-600 focus:border-emerald-400"
+                            />
+
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="mt-4 w-full rounded-xl bg-emerald-400 py-4 font-black text-black disabled:opacity-50"
+                            >
+                                {submitting
+                                    ? "Submitting..."
+                                    : "Submit Proof for Review"}
+                            </button>
+
+                            <p className="mt-3 text-center text-xs text-gray-500">
+                                Rewards are credited only after admin approval.
+                            </p>
+                        </form>
+                    </section>
+                ) : (
+                    <>
+                        <div className="mb-6 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-black">
+                                    Available Tasks
+                                </h2>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Live tasks supplied by admin
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={loadTasks}
+                                className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold"
+                            >
+                                Refresh
+                            </button>
+                        </div>
+
+                        {loading ? (
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center text-gray-400">
+                                Loading live tasks...
+                            </div>
+                        ) : tasks.length === 0 ? (
+                            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center">
+                                <div className="text-4xl">📋</div>
+                                <h3 className="mt-4 text-xl font-bold">
+                                    No tasks available right now
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    New tasks will appear when an admin publishes them.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-5 md:grid-cols-2">
+                                {tasks.map((task) => (
+                                    <article
+                                        key={task.id}
+                                        className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
+                                    >
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <span className="text-xs font-bold uppercase text-emerald-400">
+                                                    {task.category || "Task"}
+                                                </span>
+
+                                                <h3 className="mt-2 text-xl font-black">
+                                                    {task.title}
+                                                </h3>
+                                            </div>
+
+                                            <div className="rounded-xl bg-emerald-400/10 px-3 py-2 text-right">
+                                                <div className="text-xs text-emerald-300">
+                                                    Reward
+                                                </div>
+
+                                                <div className="font-black text-emerald-400">
+                                                    {money(task.reward_per_worker)}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p className="mt-4 text-sm leading-6 text-gray-400">
+                                            {task.instructions ||
+                                                "Complete the administrator's instructions and submit proof."}
+                                        </p>
+
+                                        <div className="mt-5 flex items-center justify-between">
+                                            <span className="text-xs text-gray-500">
+                                                {task.action_type || "Task"}
+                                                {task.estimated_minutes
+                                                    ? ` • ${task.estimated_minutes} min`
+                                                    : ""}
+                                            </span>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => openTask(task)}
+                                                className="rounded-xl bg-emerald-400 px-5 py-3 font-bold text-black"
+                                            >
+                                                View Task
+                                            </button>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </section>
+
+            <footer className="border-t border-white/10 px-5 py-8 text-center text-sm text-gray-600">
+                © 2026 Earn3X · Live worker task platform · Nigeria
+            </footer>
+        </main>
+    );
 }
